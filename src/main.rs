@@ -18,6 +18,7 @@ mod config;
 mod email;
 mod login;
 mod questions;
+mod questionstructs;
 
 use backend::MySqlBackend;
 //use rocket::fs::FileServer;

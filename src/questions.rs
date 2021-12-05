@@ -3,6 +3,8 @@ use crate::apikey::ApiKey;
 use crate::backend::{MySqlBackend, Value};
 use crate::config::Config;
 use crate::email;
+use crate::questionstructs;
+use crate::questionstructs::{TemplateRenderContext, AnswerPolicy, LectureQuestionSubmission, LectureQuestion, LectureQuestionsContext, LectureAnswer, LectureAnswersContext, LectureListEntry, LectureListContext};
 use chrono::naive::NaiveDateTime;
 use chrono::Local;
 use mysql::from_value;
@@ -12,59 +14,9 @@ use rocket::State;
 use rocket_dyn_templates::Template;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-
-//pub(crate) enum LectureQuestionFormError {
-//   Invalid,
-//}
-
-#[derive(Debug, FromForm)]
-pub(crate) struct LectureQuestionSubmission {
-    answers: HashMap<u64, String>,
-}
-
-#[derive(Serialize)]
-pub(crate) struct LectureQuestion {
-    pub id: u64,
-    pub prompt: String,
-    pub answer: Option<String>,
-}
-
-#[derive(Serialize)]
-pub(crate) struct LectureQuestionsContext {
-    pub lec_id: u8,
-    pub questions: Vec<LectureQuestion>,
-    pub parent: &'static str,
-}
-
-#[derive(Serialize)]
-struct LectureAnswer {
-    id: u64,
-    user: String,
-    answer: String,
-    time: Option<NaiveDateTime>,
-}
-
-#[derive(Serialize)]
-struct LectureAnswersContext {
-    lec_id: u8,
-    answers: Vec<LectureAnswer>,
-    parent: &'static str,
-}
-
-#[derive(Serialize)]
-struct LectureListEntry {
-    id: u64,
-    label: String,
-    num_qs: u64,
-    num_answered: u64,
-}
-
-#[derive(Serialize)]
-struct LectureListContext {
-    admin: bool,
-    lectures: Vec<LectureListEntry>,
-    parent: &'static str,
-}
+use beaver::filter;
+use beaver::policy::{Policy, Policied, PolicyError, NonePolicy, PoliciedNumber, PoliciedString};
+extern crate beaver_derive;
 
 #[get("/")]
 pub(crate) fn leclist(
@@ -114,26 +66,33 @@ pub(crate) fn answers(
     drop(bg);
     let answers: Vec<_> = res
         .into_iter()
-        .map(|r| LectureAnswer {
-            id: from_value(r[2].clone()),
-            user: from_value(r[0].clone()),
-            answer: from_value(r[3].clone()),
-            time: if let Value::Time(..) = r[4] {
+        .map(|r| LectureAnswer::make(
+            from_value(r[2].clone()),
+            from_value(r[0].clone()),
+            from_value(r[3].clone()),
+            if let Value::Time(..) = r[4] {
                 Some(from_value::<NaiveDateTime>(r[4].clone()))
             } else {
                 None
             },
-        })
+            Box::new(AnswerPolicy { user: from_value(r[0].clone()) }),
+        ))
         .collect();
 
-    let ctx = LectureAnswersContext {
-        lec_id: num,
-        answers: answers,
-        parent: "layout",
-    };
-    Template::render("answers", &ctx)
+    let ctx = LectureAnswersContext::make(
+        num,
+        answers,
+        "layout",
+        Box::new(NonePolicy)
+    );
+
+    let render_ctxt = Box::new(
+        filter::Context::CustomContext(
+            Box::new(TemplateRenderContext { admin: true, user: "".to_string() })));
+    Template::render("answers", ctx.export(&render_ctxt).unwrap())
 }
 
+// TODO!!!
 #[get("/<num>")]
 pub(crate) fn questions(
     apikey: ApiKey,
@@ -153,7 +112,8 @@ pub(crate) fn questions(
 
     for r in answers_res {
         let id: u64 = from_value(r[2].clone());
-        let atext: String = from_value(r[3].clone());
+        let atext: PoliciedString = PoliciedString::make(
+            from_value(r[3].clone()), Box::new(AnswerPolicy { user: apikey.user.clone() }));
         answers.insert(id, atext);
     }
     let res = bg.query_exec("qs_by_lec", vec![key]);

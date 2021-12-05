@@ -1,7 +1,7 @@
 use crate::apikey::ApiKey;
 use crate::backend::MySqlBackend;
 use crate::config::Config;
-use crate::questions::{LectureQuestion, LectureQuestionsContext};
+use crate::questionstructs::{LectureQuestion, LectureQuestionsContext};
 use mysql::from_value;
 use rocket::form::Form;
 use rocket::http::Status;
