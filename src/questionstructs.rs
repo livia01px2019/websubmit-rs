@@ -1,20 +1,9 @@
-use crate::admin::Admin;
-use crate::apikey::ApiKey;
-use crate::backend::{MySqlBackend, Value};
-use crate::config::Config;
-use crate::email;
 use chrono::naive::NaiveDateTime;
-use chrono::Local;
-use mysql::from_value;
-use rocket::form::{Form, FromForm};
-use rocket::response::Redirect;
-use rocket::State;
-use rocket_dyn_templates::Template;
-use std::sync::{Arc, Mutex};
+use rocket::form::{FromForm};
 use std::collections::HashMap;
 use beaver::filter;
 use beaver::policy;
-use beaver::policy::{Policy, Policied, PolicyError, NonePolicy, PoliciedNumber, PoliciedString};
+use beaver::policy::{Policy, Policied, PolicyError, NonePolicy, PoliciedString};
 extern crate beaver_derive;
 use beaver_derive::Policied;
 use std::any::Any;
@@ -36,28 +25,86 @@ pub(crate) struct LectureQuestion {
     answer: Option<String>,
     policy: Box<dyn Policy>, 
 }
-
-impl LectureQuestion {
-    pub fn make(id: u64, prompt: String, answer: Option<PoliciedString>, policy: Box<dyn Policy>) -> LectureQuestion {
-        // TODO: merge policy and policy from answer 
-        // TODO: call export on PoliciedString
-        // create LectureQuestion struct 
-    }
-}
-
+#[derive(Serialize)]
 pub(crate) struct LectureQuestionUnpolicied {
     pub id: u64,
     pub prompt: String,
     pub answer: Option<String>,
 }
 
-// TODO: Make this policied by deriving and then creating a make() fn, also an unpolicied version. 
-// Then follow example of answers() to use these structs and give unpolicied struct to render
-#[derive(Serialize)]
+impl LectureQuestion {
+    pub fn make(id: u64, prompt: String, answer: Option<PoliciedString>, policy: Box<dyn Policy>) -> LectureQuestion {
+        match answer {
+            Some(mut ps) => {
+                let new_policy = policy.merge(&ps.get_policy()).unwrap();
+
+                // TODO: This will be a new function that does not take in a context. This is a hacky solution
+                ps.remove_policy();
+                let ctxt = Box::new(
+                        filter::Context::CustomContext(
+                            Box::new(TemplateRenderContext { admin: true, user: "".to_string() })));
+                let answer_unpolicied = ps.export(&ctxt).unwrap();
+
+                LectureQuestion {
+                    id, prompt, answer: Some(answer_unpolicied), policy: new_policy
+                }
+            }
+            None => {
+                LectureQuestion {
+                    id, prompt, answer: None, policy
+                }
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Policied)]
 pub(crate) struct LectureQuestionsContext {
     pub lec_id: u8,
-    pub questions: Vec<LectureQuestion>,
+    // #[policy_protected(Vec<LectureQuestion>)] 
+    questions: Vec<LectureQuestionUnpolicied>,
     pub parent: &'static str,
+    policy: Box<dyn Policy>,
+}
+
+#[derive(Serialize)]
+pub(crate) struct LectureQuestionsContextUnpolicied {
+    pub lec_id: u8,
+    pub questions: Vec<LectureQuestionUnpolicied>,
+    pub parent: &'static str,
+}
+
+impl LectureQuestionsContext {
+    pub fn make(lec_id: u8, questions: Vec<LectureQuestion>, parent: &'static str, 
+        init_policy: Box<dyn Policy>) -> LectureQuestionsContext {
+            let mut policy = init_policy;
+            for question in &questions {
+                policy = policy.merge(question.get_policy()).unwrap()
+            }
+            let questions_unpolicied = questions.into_iter().map(
+                |a| LectureQuestionUnpolicied {
+                    id: a.id,
+                    prompt: a.prompt,
+                    answer: a.answer
+                }
+            ).collect();
+            LectureQuestionsContext {
+                lec_id, questions: questions_unpolicied, parent, policy
+            }
+    }
+
+    pub fn export(self, ctxt: &filter::Context) -> Result<LectureQuestionsContextUnpolicied, PolicyError> {
+        match self.policy.export_check(&ctxt) {
+            Ok(_) => {
+                Ok(LectureQuestionsContextUnpolicied {
+                    lec_id: self.lec_id,
+                    questions: self.questions,
+                    parent: self.parent
+                })
+            }, 
+            Err(pe) => { Err(pe) }
+        }
+    }
 }
 
 #[derive(Serialize, Policied)]
@@ -124,12 +171,12 @@ impl LectureAnswersContext {
     }
 
     pub fn export(self, ctxt: &filter::Context) -> Result<LectureAnswersContextUnpolicied, PolicyError> {
-        match policied_item.get_policy().export_check(&ctxt) {
+        match self.policy.export_check(&ctxt) {
             Ok(_) => {
                 Ok(LectureAnswersContextUnpolicied {
-                    lec_id: policied_item.lec_id,
-                    answers: policied_item.answers,
-                    parent: policied_item.parent
+                    lec_id: self.lec_id,
+                    answers: self.answers,
+                    parent: self.parent
                 })
             }, 
             Err(pe) => { Err(pe) }
@@ -165,7 +212,7 @@ impl Policy for AnswerPolicy {
                     Some(trc) => trc,
                     None => panic!("&cc isn't a TemplateRenderContext!"),
                 }; 
-                if (trc.admin || trc.user.eq(&self.user)) {
+                if trc.admin || trc.user.eq(&self.user) {
                     return Ok(());
                 } else {
                     return Err(PolicyError {

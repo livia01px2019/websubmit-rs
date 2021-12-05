@@ -3,19 +3,17 @@ use crate::apikey::ApiKey;
 use crate::backend::{MySqlBackend, Value};
 use crate::config::Config;
 use crate::email;
-use crate::questionstructs;
 use crate::questionstructs::{TemplateRenderContext, AnswerPolicy, LectureQuestionSubmission, LectureQuestion, LectureQuestionsContext, LectureAnswer, LectureAnswersContext, LectureListEntry, LectureListContext};
 use chrono::naive::NaiveDateTime;
 use chrono::Local;
 use mysql::from_value;
-use rocket::form::{Form, FromForm};
+use rocket::form::{Form};
 use rocket::response::Redirect;
 use rocket::State;
 use rocket_dyn_templates::Template;
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 use beaver::filter;
-use beaver::policy::{Policy, Policied, PolicyError, NonePolicy, PoliciedNumber, PoliciedString};
+use beaver::policy::{NonePolicy, PoliciedString};
 extern crate beaver_derive;
 
 #[get("/")]
@@ -92,7 +90,6 @@ pub(crate) fn answers(
     Template::render("answers", ctx.export(&render_ctxt).unwrap())
 }
 
-// TODO!!!
 #[get("/<num>")]
 pub(crate) fn questions(
     apikey: ApiKey,
@@ -123,21 +120,27 @@ pub(crate) fn questions(
         .map(|r| {
             let id: u64 = from_value(r[1].clone());
             let answer = answers.get(&id).map(|s| s.to_owned());
-            LectureQuestion {
-                id: id,
-                prompt: from_value(r[2].clone()),
-                answer: answer,
-            }
+            LectureQuestion::make(
+                id,
+                from_value(r[2].clone()),
+                answer,
+                Box::new(NonePolicy),
+            )
         })
         .collect();
     qs.sort_by(|a, b| a.id.cmp(&b.id));
 
-    let ctx = LectureQuestionsContext {
-        lec_id: num,
-        questions: qs,
-        parent: "layout",
-    };
-    Template::render("questions", &ctx)
+    let ctx = LectureQuestionsContext::make(
+        num,
+        qs,
+        "layout",
+        Box::new(NonePolicy)
+    );
+
+    let render_ctxt = Box::new(
+        filter::Context::CustomContext(
+            Box::new(TemplateRenderContext { admin: false, user: apikey.user.clone() })));
+    Template::render("questions", ctx.export(&render_ctxt).unwrap())
 }
 
 #[post("/<num>", data = "<data>")]

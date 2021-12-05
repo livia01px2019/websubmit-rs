@@ -1,7 +1,6 @@
 use crate::apikey::ApiKey;
 use crate::backend::MySqlBackend;
 use crate::config::Config;
-use crate::questionstructs::{LectureQuestion, LectureQuestionsContext};
 use mysql::from_value;
 use rocket::form::Form;
 use rocket::http::Status;
@@ -12,6 +11,10 @@ use rocket::State;
 use rocket_dyn_templates::Template;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use beaver::filter;
+use beaver::policy::NonePolicy;
+use crate::questionstructs::{TemplateRenderContext, LectureQuestion, LectureQuestionsContext};
+
 
 pub(crate) struct Admin;
 
@@ -99,21 +102,27 @@ pub(crate) fn lec(_adm: Admin, num: u8, backend: &State<Arc<Mutex<MySqlBackend>>
         .into_iter()
         .map(|r| {
             let id: u64 = from_value(r[1].clone());
-            LectureQuestion {
-                id: id,
-                prompt: from_value(r[2].clone()),
-                answer: None,
-            }
+            LectureQuestion::make(
+                id,
+                from_value(r[2].clone()),
+                None,
+                Box::new(NonePolicy)
+            )
         })
         .collect();
     qs.sort_by(|a, b| a.id.cmp(&b.id));
 
-    let ctx = LectureQuestionsContext {
-        lec_id: num,
-        questions: qs,
-        parent: "layout",
-    };
-    Template::render("admin/lec", &ctx)
+    let ctx = LectureQuestionsContext::make(
+        num,
+        qs,
+        "layout",
+        Box::new(NonePolicy)
+    );
+
+    let render_ctxt = Box::new(
+        filter::Context::CustomContext(
+            Box::new(TemplateRenderContext { admin: true, user: "".to_string() })));
+    Template::render("admin/lec", ctx.export(&render_ctxt).unwrap())
 }
 
 #[post("/<num>", data = "<data>")]
