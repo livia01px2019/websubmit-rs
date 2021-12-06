@@ -121,7 +121,7 @@ pub(crate) fn lec(_adm: Admin, num: u8, backend: &State<Arc<Mutex<MySqlBackend>>
 
     let render_ctxt = Box::new(
         filter::Context::CustomContext(
-            Box::new(TemplateRenderContext { admin: true, user: "".to_string() })));
+            Box::new(TemplateRenderContext { is_admin: true, user: "".to_string() })));
     Template::render("admin/lec", ctx.export(&render_ctxt).unwrap())
 }
 

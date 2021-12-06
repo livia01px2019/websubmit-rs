@@ -216,13 +216,7 @@ impl Policy for AnswerPolicy {
                 match cc.as_any().downcast_ref::<TemplateRenderContext>() {
                     Some(trc) => {
                         // interface with SQL database
-                        let mut bg = trc.backend.lock().unwrap();
-                        let rs = bg.query_exec("users_by_apikey", vec![trc.key.clone().into()]);
-                        drop(bg);
-
-                        let is_admin: bool = from_value::<bool>(rs[0][2].clone());
-
-                        if is_admin || trc.apikey.user.eq(&self.user) {
+                        if trc.is_admin || trc.user.eq(&self.user) {
                             return Ok(());
                         } else {
                             return Err(PolicyError {
@@ -232,8 +226,9 @@ impl Policy for AnswerPolicy {
                     },
                     None => {
                         match cc.as_any().downcast_ref::<HackContext>() {
-                            Some(hc) => { Ok(()) },
-                            None => { Err(PolicyError{message: "Must be either TemplateRenderContext or HackContext"}) }
+                            Some(hc) => { return Ok(()); },
+                            None => { return Err(PolicyError{
+                                message: "Must be either TemplateRenderContext or HackContext".to_string() }); }
                         }
                     }
                 }; 
@@ -252,11 +247,9 @@ impl Policy for AnswerPolicy {
      }
 }
 
-pub struct TemplateRenderContext<'a> {
-    // pub admin: bool,
-    // Note: this is broken right now
-    pub apikey: ApiKey,
-    pub(crate) backend: &State<Arc<Mutex<MySqlBackend>>>,
+pub struct TemplateRenderContext {
+    pub is_admin: bool,
+    pub user: String,
 }
 
 impl filter::CustomContext for TemplateRenderContext {

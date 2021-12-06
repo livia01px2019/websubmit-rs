@@ -55,7 +55,7 @@ pub(crate) fn leclist(
 #[get("/<num>")]
 pub(crate) fn answers(
     // _admin: Admin,
-    ak: ApiKey,
+    apikey: ApiKey,
     num: u8,
     backend: &State<Arc<Mutex<MySqlBackend>>>,
 ) -> Template {
@@ -85,9 +85,14 @@ pub(crate) fn answers(
         Box::new(NonePolicy)
     );
 
+    let mut bg = backend.lock().unwrap();
+    let rs = bg.query_exec("users_by_apikey", vec![apikey.key.clone().into()]);
+    drop(bg);
+    let is_admin: bool = from_value::<bool>(rs[0][2].clone());
+
     let render_ctxt = Box::new(
         filter::Context::CustomContext(
-            Box::new(TemplateRenderContext { apikey: ak, backend })));
+            Box::new(TemplateRenderContext { is_admin, user: apikey.user })));
     Template::render("answers", ctx.export(&render_ctxt).unwrap())
 }
 
@@ -138,9 +143,14 @@ pub(crate) fn questions(
         Box::new(NonePolicy)
     );
 
+    let mut bg = backend.lock().unwrap();
+    let rs = bg.query_exec("users_by_apikey", vec![apikey.key.clone().into()]);
+    drop(bg);
+    let is_admin: bool = from_value::<bool>(rs[0][2].clone());
+
     let render_ctxt = Box::new(
         filter::Context::CustomContext(
-            Box::new(TemplateRenderContext { apikey, backend })));
+            Box::new(TemplateRenderContext { is_admin, user: apikey.user })));
     Template::render("questions", ctx.export(&render_ctxt).unwrap())
 }
 
