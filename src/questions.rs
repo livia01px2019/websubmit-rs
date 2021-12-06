@@ -1,4 +1,3 @@
-use crate::admin::Admin;
 use crate::apikey::ApiKey;
 use crate::backend::{MySqlBackend, Value};
 use crate::config::Config;

@@ -1,8 +1,5 @@
-use crate::apikey::ApiKey;
-use crate::backend::MySqlBackend;
 use chrono::naive::NaiveDateTime;
 use rocket::form::{FromForm};
-use rocket::State;
 use std::collections::HashMap;
 use beaver::filter;
 use beaver::policy;
@@ -10,8 +7,6 @@ use beaver::policy::{Policy, Policied, PolicyError, NonePolicy, PoliciedString};
 extern crate beaver_derive;
 use beaver_derive::Policied;
 use std::any::Any;
-use std::sync::{Arc, Mutex};
-use mysql::from_value;
 
 //pub(crate) enum LectureQuestionFormError {
 //   Invalid,
@@ -226,7 +221,7 @@ impl Policy for AnswerPolicy {
                     },
                     None => {
                         match cc.as_any().downcast_ref::<HackContext>() {
-                            Some(hc) => { return Ok(()); },
+                            Some(_) => { return Ok(()); },
                             None => { return Err(PolicyError{
                                 message: "Must be either TemplateRenderContext or HackContext".to_string() }); }
                         }
