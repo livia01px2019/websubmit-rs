@@ -54,7 +54,8 @@ pub(crate) fn leclist(
 
 #[get("/<num>")]
 pub(crate) fn answers(
-    _admin: Admin,
+    // _admin: Admin,
+    ak: ApiKey,
     num: u8,
     backend: &State<Arc<Mutex<MySqlBackend>>>,
 ) -> Template {
@@ -86,7 +87,7 @@ pub(crate) fn answers(
 
     let render_ctxt = Box::new(
         filter::Context::CustomContext(
-            Box::new(TemplateRenderContext { admin: true, user: "".to_string() })));
+            Box::new(TemplateRenderContext { apikey: ak, backend })));
     Template::render("answers", ctx.export(&render_ctxt).unwrap())
 }
 
@@ -139,7 +140,7 @@ pub(crate) fn questions(
 
     let render_ctxt = Box::new(
         filter::Context::CustomContext(
-            Box::new(TemplateRenderContext { admin: false, user: apikey.user.clone() })));
+            Box::new(TemplateRenderContext { apikey, backend })));
     Template::render("questions", ctx.export(&render_ctxt).unwrap())
 }
 

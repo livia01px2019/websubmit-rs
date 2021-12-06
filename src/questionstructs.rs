@@ -1,5 +1,8 @@
+use crate::apikey::ApiKey;
+use crate::backend::MySqlBackend;
 use chrono::naive::NaiveDateTime;
 use rocket::form::{FromForm};
+use rocket::State;
 use std::collections::HashMap;
 use beaver::filter;
 use beaver::policy;
@@ -7,6 +10,8 @@ use beaver::policy::{Policy, Policied, PolicyError, NonePolicy, PoliciedString};
 extern crate beaver_derive;
 use beaver_derive::Policied;
 use std::any::Any;
+use std::sync::{Arc, Mutex};
+use mysql::from_value;
 
 //pub(crate) enum LectureQuestionFormError {
 //   Invalid,
@@ -42,7 +47,7 @@ impl LectureQuestion {
                 ps.remove_policy();
                 let ctxt = Box::new(
                         filter::Context::CustomContext(
-                            Box::new(TemplateRenderContext { admin: true, user: "".to_string() })));
+                            Box::new(HackContext{})));
                 let answer_unpolicied = ps.export(&ctxt).unwrap();
 
                 LectureQuestion {
@@ -208,17 +213,31 @@ impl Policy for AnswerPolicy {
     fn export_check(&self, ctxt: &filter::Context) -> Result<(), PolicyError> {
         match ctxt {
             filter::Context::CustomContext(cc) => {
-                let trc: &TemplateRenderContext = match cc.as_any().downcast_ref::<TemplateRenderContext>() {
-                    Some(trc) => trc,
-                    None => panic!("&cc isn't a TemplateRenderContext!"),
+                match cc.as_any().downcast_ref::<TemplateRenderContext>() {
+                    Some(trc) => {
+                        // interface with SQL database
+                        let mut bg = trc.backend.lock().unwrap();
+                        let rs = bg.query_exec("users_by_apikey", vec![trc.key.clone().into()]);
+                        drop(bg);
+
+                        let is_admin: bool = from_value::<bool>(rs[0][2].clone());
+
+                        if is_admin || trc.apikey.user.eq(&self.user) {
+                            return Ok(());
+                        } else {
+                            return Err(PolicyError {
+                                message: "Answer can only be shown to admin or answer's user".to_string()
+                            });
+                        }
+                    },
+                    None => {
+                        match cc.as_any().downcast_ref::<HackContext>() {
+                            Some(hc) => { Ok(()) },
+                            None => { Err(PolicyError{message: "Must be either TemplateRenderContext or HackContext"}) }
+                        }
+                    }
                 }; 
-                if trc.admin || trc.user.eq(&self.user) {
-                    return Ok(());
-                } else {
-                    return Err(PolicyError {
-                        message: "Answer can only be shown to admin or answer's user".to_string()
-                    });
-                }
+                
             }
             _ => {Err(PolicyError {
                 message: "Can only send answer over TemplateRenderContext".to_string()
@@ -233,12 +252,22 @@ impl Policy for AnswerPolicy {
      }
 }
 
-pub struct TemplateRenderContext {
-    pub admin: bool,
-    pub user: String,
+pub struct TemplateRenderContext<'a> {
+    // pub admin: bool,
+    // Note: this is broken right now
+    pub apikey: ApiKey,
+    pub(crate) backend: &State<Arc<Mutex<MySqlBackend>>>,
 }
 
 impl filter::CustomContext for TemplateRenderContext {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+} 
+
+pub struct HackContext {}
+
+impl filter::CustomContext for HackContext {
     fn as_any(&self) -> &dyn Any {
         self
     }
