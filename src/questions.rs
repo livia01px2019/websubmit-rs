@@ -104,7 +104,7 @@ pub(crate) fn leclist(
 
 #[get("/<num>")]
 pub(crate) fn answers(
-    _admin: Admin,
+    //_admin: Admin,
     num: u8,
     backend: &State<Arc<Mutex<MySqlBackend>>>,
 ) -> Template {
