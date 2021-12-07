@@ -8,10 +8,6 @@ extern crate beaver_derive;
 use beaver_derive::Policied;
 use std::any::Any;
 
-//pub(crate) enum LectureQuestionFormError {
-//   Invalid,
-//}
-
 #[derive(Debug, FromForm)]
 pub(crate) struct LectureQuestionSubmission {
     pub answers: HashMap<u64, String>,
@@ -25,6 +21,7 @@ pub(crate) struct LectureQuestion {
     answer: Option<String>,
     policy: Box<dyn Policy>, 
 }
+// TODO: This can potentially be macro-ed
 #[derive(Serialize)]
 pub(crate) struct LectureQuestionUnpolicied {
     pub id: u64,
@@ -32,12 +29,15 @@ pub(crate) struct LectureQuestionUnpolicied {
     pub answer: Option<String>,
 }
 
+// TODO: This can potentially be macro-ed
 impl LectureQuestion {
     pub fn make(id: u64, prompt: String, answer: Option<PoliciedString>, policy: Box<dyn Policy>) -> LectureQuestion {
         match answer {
             Some(mut ps) => {
+                // Merge the given policy with policies from policied inputs
                 let new_policy = policy.merge(&ps.get_policy()).unwrap();
 
+                // Remove policies from policied inputs, the policy is now stored in the outer policy
                 // TODO: This will be a new function that does not take in a context. This is a hacky solution
                 ps.remove_policy();
                 let ctxt = Box::new(

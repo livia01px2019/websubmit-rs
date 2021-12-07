@@ -1,0 +1,10 @@
+INSERT INTO users (email, apikey, is_admin) VALUES ("malte@cs.brown.edu", "0", 1);
+INSERT INTO users (email, apikey, is_admin) VALUES ("sreshtaa_rajesh@brown.edu", "1", 0);
+INSERT INTO users (email, apikey, is_admin) VALUES ("livia_zhu@brown.edu", "2", 0);
+INSERT INTO lectures (id, label) VALUES (0, "Lecture 1");
+INSERT INTO lectures (id, label) VALUES (1, "Lecture 2");
+INSERT INTO questions (lec, q, question) VALUES (0, 0, "What is your favorite animal?");
+INSERT INTO questions (lec, q, question) VALUES (1, 0, "Why are beavers your favorite animal?");
+INSERT INTO answers (email, lec, q, answer, submitted_at) VALUES ("sreshtaa_rajesh@brown.edu", 0, 0, "Beaver", "2021-12-06 14:20:02");
+INSERT INTO answers (email, lec, q, answer, submitted_at) VALUES ("livia_zhu@brown.edu", 0, 0, "Beaver!!", "2021-12-06 14:20:05");
+INSERT INTO answers (email, lec, q, answer, submitted_at) VALUES ("livia_zhu@brown.edu", 1, 0, "Because they are awesome!", "2021-12-06 15:20:00");
