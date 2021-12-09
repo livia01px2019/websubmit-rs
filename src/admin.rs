@@ -12,8 +12,8 @@ use rocket_dyn_templates::Template;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use beaver::filter;
-use beaver::policy::NonePolicy;
-use crate::questionstructs::{TemplateRenderContext, LectureQuestion, LectureQuestionsContext};
+use beaver::policy::{NonePolicy, Policied, PoliciedStringOption};
+use crate::questionstructs::{TemplateRenderContext, PoliciedLectureQuestionVec, PoliciedLectureAnswerVec, AnswerPolicy, LectureQuestionSubmission, PoliciedLectureQuestion, PoliciedLectureQuestionsContext, PoliciedLectureAnswer, PoliciedLectureAnswersContext, LectureListEntry, LectureListContext};
 
 
 pub(crate) struct Admin;
@@ -98,21 +98,20 @@ pub(crate) fn lec(_adm: Admin, num: u8, backend: &State<Arc<Mutex<MySqlBackend>>
     let mut bg = backend.lock().unwrap();
     let res = bg.query_exec("qs_by_lec", vec![(num as u64).into()]);
     drop(bg);
-    let mut qs: Vec<_> = res
-        .into_iter()
-        .map(|r| {
-            let id: u64 = from_value(r[1].clone());
-            LectureQuestion::make(
-                id,
-                from_value(r[2].clone()),
-                None,
-                Box::new(NonePolicy)
-            )
-        })
-        .collect();
+    let mut qs: PoliciedLectureQuestionVec = PoliciedLectureQuestionVec::make(vec![], Box::new(NonePolicy));
+    for r in res {
+        let id = from_value(r[1].clone());
+        qs.push_policy(PoliciedLectureQuestion::make_decompose(
+            id,
+            from_value(r[2].clone()),
+            PoliciedStringOption::make_option(None),
+            Box::new(NonePolicy),
+        ))
+    }
+
     qs.sort_by(|a, b| a.id.cmp(&b.id));
 
-    let ctx = LectureQuestionsContext::make(
+    let ctx = PoliciedLectureQuestionsContext::make_decompose(
         num,
         qs,
         "layout",
@@ -122,7 +121,7 @@ pub(crate) fn lec(_adm: Admin, num: u8, backend: &State<Arc<Mutex<MySqlBackend>>
     let render_ctxt = Box::new(
         filter::Context::CustomContext(
             Box::new(TemplateRenderContext { is_admin: true, user: "".to_string() })));
-    Template::render("admin/lec", ctx.export(&render_ctxt).unwrap())
+    Template::render("admin/lec", ctx.export_check(&render_ctxt).unwrap())
 }
 
 #[post("/<num>", data = "<data>")]
