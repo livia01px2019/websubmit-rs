@@ -4,6 +4,9 @@ use std::collections::HashMap;
 use beaver::filter;
 use beaver::policy;
 use beaver::policy::{Policy, Policied, PolicyError, NonePolicy, PoliciedString, PoliciedStringOption};
+use beaver::derive_policied;
+use beaver::derive_policied_vec;
+use beaver::derive_policied_option;
 extern crate beaver_derive;
 use beaver_derive::Policied;
 use std::any::Any;
@@ -65,58 +68,7 @@ impl PoliciedLectureQuestion {
     }
 }
 
-//derive_policied_vec!(PoliciedLectureQuestionVec, String, PoliciedLectureQuestion);
-#[derive(Serialize)]
-pub struct PoliciedLectureQuestionVec {
-    inner: Vec<LectureQuestion>,
-    policy: Box<dyn Policy>,
-}
-
-impl Policied<Vec<LectureQuestion>> for PoliciedLectureQuestionVec {
-    fn make(inner: Vec<LectureQuestion>, policy: Box<dyn Policy>) -> PoliciedLectureQuestionVec {
-        PoliciedLectureQuestionVec {
-            inner, policy
-        }
-    }
-    fn get_policy(&self) -> &Box<dyn Policy> {
-        &self.policy
-    }
-    fn remove_policy(&mut self) -> () { self.policy = Box::new(NonePolicy); }
-    fn export_check(&self, ctxt: &filter::Context) -> Result<Vec<LectureQuestion>, PolicyError> {
-        match self.get_policy().check(&ctxt) {
-            Ok(_) => {
-                Ok(self.inner.clone())
-            }, 
-            Err(pe) => { Err(pe) }
-        }
-    }
-    fn export(&self) -> Vec<LectureQuestion> {
-        self.inner.clone()
-    }
-}
-
-impl PoliciedLectureQuestionVec {
-    pub fn push(&mut self, value: LectureQuestion) {
-        self.inner.push(value);
-    }
-
-    pub fn push_policy(&mut self, value: PoliciedLectureQuestion) {
-        self.policy = self.policy.merge(value.get_policy()).unwrap();
-        self.inner.push(value.export());
-    }
-
-    pub fn pop(&mut self) -> Option<PoliciedLectureQuestion> {
-        match self.inner.pop() {
-            Some(v) => Some(PoliciedLectureQuestion::make(v, self.policy.clone() )),
-            None => None
-        }
-    }
-
-    pub fn sort_by<F>(&mut self, compare: F) where F: FnMut(&LectureQuestion, &LectureQuestion) -> std::cmp::Ordering, {
-        self.inner.sort_by(compare)
-    }
-}
-// ############ ############ end can be macro-ed ############ ############ ############
+derive_policied_vec!(PoliciedLectureQuestionVec, LectureQuestion, PoliciedLectureQuestion);
 
 
 // #[derive(Serialize, Policied)]
@@ -229,53 +181,7 @@ impl PoliciedLectureAnswer {
     }
 }
 
-//derive_policied_vec!(PoliciedLectureAnswerVec, String, PoliciedLectureAnswer);
-#[derive(Serialize)]
-pub struct PoliciedLectureAnswerVec {
-    inner: Vec<LectureAnswer>,
-    policy: Box<dyn Policy>,
-}
-
-impl Policied<Vec<LectureAnswer>> for PoliciedLectureAnswerVec {
-    fn make(inner: Vec<LectureAnswer>, policy: Box<dyn Policy>) -> PoliciedLectureAnswerVec {
-        PoliciedLectureAnswerVec {
-            inner, policy
-        }
-    }
-    fn get_policy(&self) -> &Box<dyn Policy> {
-        &self.policy
-    }
-    fn remove_policy(&mut self) -> () { self.policy = Box::new(NonePolicy); }
-    fn export_check(&self, ctxt: &filter::Context) -> Result<Vec<LectureAnswer>, PolicyError> {
-        match self.get_policy().check(&ctxt) {
-            Ok(_) => {
-                Ok(self.inner.clone())
-            }, 
-            Err(pe) => { Err(pe) }
-        }
-    }
-    fn export(&self) -> Vec<LectureAnswer> {
-        self.inner.clone()
-    }
-}
-
-impl PoliciedLectureAnswerVec {
-    pub fn push(&mut self, value: LectureAnswer) {
-        self.inner.push(value);
-    }
-
-    pub fn push_policy(&mut self, value: PoliciedLectureAnswer) {
-        self.policy = self.policy.merge(value.get_policy()).unwrap();
-        self.inner.push(value.export());
-    }
-
-    pub fn pop(&mut self) -> Option<PoliciedLectureAnswer> {
-        match self.inner.pop() {
-            Some(v) => Some(PoliciedLectureAnswer::make(v, self.policy.clone() )),
-            None => None
-        }
-    }
-}
+derive_policied_vec!(PoliciedLectureAnswerVec, LectureAnswer, PoliciedLectureAnswer);
 // ############ ############ end can be macro-ed ############ ############ ############
 
 // #[derive(Serialize, Policied)]
