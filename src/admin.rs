@@ -101,7 +101,7 @@ pub(crate) fn lec(_adm: Admin, num: u8, backend: &State<Arc<Mutex<MySqlBackend>>
     let mut qs: PoliciedLectureQuestionVec = PoliciedLectureQuestionVec::make(vec![], Box::new(NonePolicy));
     for r in res {
         let id = from_value(r[1].clone());
-        qs.push_policy(PoliciedLectureQuestion::make_decompose(
+        qs.push_policy(PoliciedLectureQuestion::make_decomposed(
             id,
             from_value(r[2].clone()),
             PoliciedStringOption::make_option(None),
@@ -111,7 +111,7 @@ pub(crate) fn lec(_adm: Admin, num: u8, backend: &State<Arc<Mutex<MySqlBackend>>
 
     qs.sort_by(|a, b| a.id.cmp(&b.id));
 
-    let ctx = PoliciedLectureQuestionsContext::make_decompose(
+    let ctx = PoliciedLectureQuestionsContext::make_decomposed(
         num,
         qs,
         "layout",

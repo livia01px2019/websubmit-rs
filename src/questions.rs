@@ -64,7 +64,7 @@ pub(crate) fn answers(
     drop(bg);
     let mut answers: PoliciedLectureAnswerVec = PoliciedLectureAnswerVec::make(vec![], Box::new(NonePolicy));
     for r in res {
-        answers.push_policy(PoliciedLectureAnswer::make_decompose(
+        answers.push_policy(PoliciedLectureAnswer::make_decomposed(
             from_value(r[2].clone()),
             from_value(r[0].clone()),
             PoliciedString::make(from_value(r[3].clone()),
@@ -77,7 +77,7 @@ pub(crate) fn answers(
             Box::new(NonePolicy)))
     }
 
-    let ctx = PoliciedLectureAnswersContext::make_decompose(
+    let ctx = PoliciedLectureAnswersContext::make_decomposed(
         num,
         answers,
         "layout",
@@ -123,7 +123,7 @@ pub(crate) fn questions(
     let mut qs: PoliciedLectureQuestionVec = PoliciedLectureQuestionVec::make(vec![], Box::new(NonePolicy));
     for r in res {
         let id = from_value(r[1].clone());
-        qs.push_policy(PoliciedLectureQuestion::make_decompose(
+        qs.push_policy(PoliciedLectureQuestion::make_decomposed(
             id,
             from_value(r[2].clone()),
             PoliciedStringOption::make_option(answers.get(&id).map(|s| s.to_owned())),
@@ -132,7 +132,7 @@ pub(crate) fn questions(
     }
     qs.sort_by(|a, b| a.id.cmp(&b.id));
 
-    let ctx = PoliciedLectureQuestionsContext::make_decompose(
+    let ctx = PoliciedLectureQuestionsContext::make_decomposed(
         num,
         qs,
         "layout",
